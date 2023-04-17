@@ -2,6 +2,10 @@ import numpy as np
 import pandas as pd
 import sqlite3
 from scipy.stats import truncnorm
+from collections import defaultdict
+from scipy.stats import ks_2samp, chi2_contingency
+import scipy.stats as stats
+
 
 def generate_data(n_samples):
     # set random seed for reproducibility
@@ -100,16 +104,195 @@ def save_to_db(data):
     conn.close()
 
 
-new_data = generate_data(5000)
+#new_data = generate_data(5000)
 # apply the function to create the classification label for each row in the dataset
-new_data['Attrition'] = new_data.apply(create_label, axis=1)
+#new_data['Attrition'] = new_data.apply(create_label, axis=1)
 
 #save_to_db(new_data)
 
-new_data.to_csv('Batch_1.csv', index=False)
 
-new_data_2 = generate_data(5000)
-# apply the function to create the classification label for each row in the dataset
-new_data_2['Attrition'] = new_data_2.apply(create_label, axis=1)
+def detect_data_drift(reference_data, new_data, threshold=0.05):
+    
+    drift_features = []
+    drift_features_cat = []
+    
+    # check feature types and calculate distance for each feature
+    for feature in reference_data.columns:
+        old_batch = reference_data[feature]
+        new_batch = new_data[feature]
 
-new_data_2.to_csv('Batch_2.csv', index = False)
+        # check if feature is categorical or numeric
+        if np.issubdtype(old_batch.dtype, np.number):
+            ks_statistic, p_val = ks_2samp(old_batch, new_batch)
+            if p_val < threshold:
+                #drift_dict['ks_2samp'] = p_val
+                drift_features.append(feature)
+                #feature_names.append(feature)
+        else:
+            #feature_types[feature] = 'categorical'
+            old_distribution = pd.crosstab(old_batch, new_batch)
+            chi2_stat, p_val, dof, expected = chi2_contingency(old_distribution)
+            if p_val < threshold:
+                drift_features_cat.append(feature)
+                #feature_names_cat.append(feature)
+    return drift_features_cat, drift_features
+
+
+def psi_numeric(observed, expected):
+    buckets = 10
+
+
+    # Calculate the bucket boundaries
+    boundaries = np.quantile(observed.index.values, np.linspace(0, 1, buckets + 1))
+    boundaries[0] = -np.inf
+    boundaries[-1] = np.inf
+
+    # Group the observed and expected data based on the bucket boundaries
+    observed_groups = observed.groupby(pd.cut(observed.index.values, boundaries)).count()
+    expected_groups = expected.groupby(pd.cut(expected.index.values, boundaries)).count()
+
+    # Calculate the observed and expected proportions for each group
+    observed_proportions = observed_groups / observed.sum()
+    expected_proportions = expected_groups / expected.sum()
+
+    # Add missing buckets to expected proportions
+    missing_buckets = observed_proportions.index.difference(expected_proportions.index)
+    for bucket in missing_buckets:
+        expected_proportions[bucket] = 0
+
+    # Sort the data by the bucket boundaries
+    observed_proportions.sort_index(inplace=True)
+    expected_proportions.sort_index(inplace=True)
+
+    # Calculate the PSI value
+    psi_value = np.sum((observed_proportions - expected_proportions) * np.log(observed_proportions / expected_proportions)) * 100
+
+    return psi_value
+
+def psi_cat(ref_feature, new_feature):
+    # Calculate distribution of actual and expected values
+    actual_counts = ref_feature.value_counts(normalize=True, sort=False)
+    expected_counts = new_feature.value_counts(normalize=True, sort=False)
+
+    # Calculate the proportion of each distribution
+    actual_prop = actual_counts / actual_counts.sum()
+    expected_prop = expected_counts / expected_counts.sum()
+
+    # Calculate the PSI value
+    psi_value = ((expected_prop - actual_prop) * np.log(expected_prop / actual_prop)).sum()
+
+    return psi_value
+
+
+def calculate_psi(old_batch, current_batch, threshold=0.25):
+    drift_features = []
+
+    for feature in old_batch.columns:
+        df_1 = old_batch[feature]
+        df_2 = current_batch[feature]
+        if np.issubdtype(df_1.dtype, np.number):
+            stat = psi_numeric(df_1, df_2)
+
+            if stat > threshold:
+                drift_features.append(feature)
+        else:
+            stat = psi_cat(df_1, df_2)
+
+            if stat > threshold:
+                drift_features.append(feature)
+    return drift_features
+
+
+def compare_preds(old_batch, current_batch, alpha = 0.05):
+    # create two sets of predictions
+    predictions_1 = old_batch['Attrition']
+    predictions_2 = current_batch['Attrition']
+
+    # create a contingency table
+    contingency_table = pd.crosstab(predictions_1, predictions_2)
+
+    # perform the chi-squared test
+    chi2, p_val, dof, expected = stats.chi2_contingency(contingency_table)
+
+    if p_val < alpha:
+        return "Significant difference between the two sets of predictions"
+    else:
+        return "No significant difference between the two sets of prediction"
+    
+
+import numpy as np
+import pandas as pd
+from scipy.spatial.distance import cdist
+from collections import Counter
+
+def compute_numerical_distance(ref_data, prod_data):
+    """
+    Compute the Euclidean distance between the summary statistics of two numerical columns
+    """
+    ref_stats = np.array([ref_data.mean(), ref_data.std(), ref_data.var()])
+    prod_stats = np.array([prod_data.mean(), prod_data.std(), prod_data.var()])
+    return cdist(ref_stats.reshape(1, -1), prod_stats.reshape(1, -1), metric='euclidean')[0, 0]
+
+def compute_categorical_distance(ref_data, prod_data):
+    """
+    Compute the Jensen-Shannon distance between the empirical distributions of two categorical columns
+    """
+    ref_counts = dict(Counter(ref_data))
+    prod_counts = dict(Counter(prod_data))
+    all_values = list(set(ref_counts.keys()) | set(prod_counts.keys()))
+    ref_probs = np.array([ref_counts.get(val, 0) / len(ref_data) for val in all_values])
+    prod_probs = np.array([prod_counts.get(val, 0) / len(prod_data) for val in all_values])
+    avg_probs = 0.5 * (ref_probs + prod_probs)
+    js_divergence = 0.5 * (np.sum(ref_probs * np.log(ref_probs / avg_probs)) + np.sum(prod_probs * np.log(prod_probs / avg_probs)))
+    #print(js_divergence)
+    return np.sqrt(js_divergence)
+
+def compute_overall_distance(ref_df, prod_df, numerical_cols, categorical_cols, numerical_weights=None):
+    """
+    Compute the overall distance metric between the reference and production dataframes
+    """
+    if numerical_weights is None:
+        numerical_weights = [1] * len(numerical_cols)
+    num_distance = 0
+    cat_distance = 0
+    for i, col in enumerate(numerical_cols):
+        num_distance += numerical_weights[i] * compute_numerical_distance(ref_df[col], prod_df[col])
+        print(num_distance)
+    for col in categorical_cols:
+        cat_distance += compute_categorical_distance(ref_df[col], prod_df[col])
+
+       # print(cat_distance)
+    return num_distance + cat_distance
+
+def test_for_drift(ref_data, prod_data, numerical_cols, categorical_cols, numerical_weights=None, threshold=0.1):
+    """
+    Test for covariate drift between the reference and production dataframes
+    """
+    distance = compute_overall_distance(ref_data, prod_data, numerical_cols, categorical_cols, numerical_weights)
+    return distance >= threshold
+
+
+## Model KPIs
+
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, roc_curve
+
+def calculate_model_KPI(y_true, y_pred):
+    # assuming y_true and y_pred are the true and predicted labels, respectively
+    accuracy = accuracy_score(y_true, y_pred)
+    precision = precision_score(y_true, y_pred)
+    recall = recall_score(y_true, y_pred)
+    f1 = f1_score(y_true, y_pred)
+    auc_roc = roc_auc_score(y_true, y_pred)
+    cm = confusion_matrix(y_true, y_pred)
+    return accuracy, precision, recall, f1, auc_roc, cm
+
+def plot_roc(y_true, y_pred):
+    fpr, tpr, thresholds = roc_curve(y_true, y_pred)
+    return fpr, tpr, thresholds
+    
+# # plot the ROC curve
+# plt.plot(fpr, tpr)
+# plt.xlabel('False Positive Rate')
+# plt.ylabel('True Positive Rate')
+# plt.title('ROC Curve')
+# plt.show()
