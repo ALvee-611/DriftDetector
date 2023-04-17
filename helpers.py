@@ -296,3 +296,28 @@ def plot_roc(y_true, y_pred):
 # plt.ylabel('True Positive Rate')
 # plt.title('ROC Curve')
 # plt.show()
+
+
+def drift_detector(old_data, new_data):
+    drift_dict = defaultdict()
+
+    # KS_test and Chi_sq test for numeric and categorical features respectively
+    cat_features, num_features = detect_data_drift(old_data, new_data, threshold=0.05)
+    drift_dict['KS_test'] = num_features
+    drift_dict['Chi_Sq'] = cat_features
+
+    psi_features = calculate_psi(old_data, new_data)
+    drift_dict['PSI'] = psi_features
+
+    numerical_cols = []
+    categorical_cols = []
+    for feature in old_data.columns:
+        if np.issubdtype(old_data[feature].dtype, np.number):
+            numerical_cols.append(feature)
+        else:
+            categorical_cols.append(feature)
+    res = test_for_drift(old_data, new_data, numerical_cols, categorical_cols, threshold=0.1)
+
+    drift_dict['Distance_based'] = res
+
+    return drift_dict
