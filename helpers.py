@@ -5,6 +5,8 @@ from scipy.stats import truncnorm
 from collections import defaultdict
 from scipy.stats import ks_2samp, chi2_contingency
 import scipy.stats as stats
+import streamlit as st
+import matplotlib.pyplot as plt
 
 
 def generate_data(n_samples):
@@ -184,7 +186,7 @@ def psi_cat(ref_feature, new_feature):
     return psi_value
 
 
-def calculate_psi(old_batch, current_batch, threshold=0.25):
+def calculate_psi(old_batch, current_batch, threshold=0.1):
     drift_features = []
 
     for feature in old_batch.columns:
@@ -204,6 +206,11 @@ def calculate_psi(old_batch, current_batch, threshold=0.25):
 
 
 def compare_preds(old_batch, current_batch, alpha = 0.05):
+    """
+    compare_preds(old_batch, current_batch) takes two datsets and then retruns true if the target variable in the two sets are 
+    statistically different
+    DataFrame DataFrame -> Bool
+    """
     # create two sets of predictions
     predictions_1 = old_batch['Attrition']
     predictions_2 = current_batch['Attrition']
@@ -247,28 +254,31 @@ def compute_categorical_distance(ref_data, prod_data):
     #print(js_divergence)
     return np.sqrt(js_divergence)
 
-def compute_overall_distance(ref_df, prod_df, numerical_cols, categorical_cols, numerical_weights=None):
+def compute_overall_distance(ref_df, prod_df, numerical_weights=None):
     """
     Compute the overall distance metric between the reference and production dataframes
     """
+    numerical_cols = ref_df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+    categorical_cols = ref_df.select_dtypes(include=['object']).columns.tolist()
+
     if numerical_weights is None:
         numerical_weights = [1] * len(numerical_cols)
     num_distance = 0
     cat_distance = 0
     for i, col in enumerate(numerical_cols):
         num_distance += numerical_weights[i] * compute_numerical_distance(ref_df[col], prod_df[col])
-        print(num_distance)
+        # print(num_distance)
     for col in categorical_cols:
         cat_distance += compute_categorical_distance(ref_df[col], prod_df[col])
 
        # print(cat_distance)
     return num_distance + cat_distance
 
-def test_for_drift(ref_data, prod_data, numerical_cols, categorical_cols, numerical_weights=None, threshold=0.1):
+def test_for_drift(ref_data, prod_data, numerical_weights=None, threshold=0.1):
     """
     Test for covariate drift between the reference and production dataframes
     """
-    distance = compute_overall_distance(ref_data, prod_data, numerical_cols, categorical_cols, numerical_weights)
+    distance = compute_overall_distance(ref_data, prod_data, numerical_weights)
     return distance >= threshold
 
 
@@ -297,7 +307,7 @@ def plot_roc(y_true, y_pred):
 # plt.title('ROC Curve')
 # plt.show()
 
-
+@st.cache_resource
 def drift_detector(old_data, new_data):
     drift_dict = defaultdict()
 
@@ -316,8 +326,26 @@ def drift_detector(old_data, new_data):
             numerical_cols.append(feature)
         else:
             categorical_cols.append(feature)
-    res = test_for_drift(old_data, new_data, numerical_cols, categorical_cols, threshold=0.1)
+    
+    val = drift_dict.values()
+    
+    # True only if all the tests are empty
+    any_drift = all(not v for v in val)
 
-    drift_dict['Distance_based'] = res
+    return drift_dict, any_drift
 
-    return drift_dict
+@st.cache_resource
+def draw_fig(old_df, new_df, feature_to_plot):
+    old_dist = old_df[feature_to_plot]
+    new_dist = new_df[feature_to_plot]
+
+    # Create a figure with two subplots
+    fig, axs = plt.subplots(1, 1, figsize=(10, 4))
+
+    axs.hist(old_dist, alpha=0.5)
+    axs.set_title("Old Distrubtion for" + feature_to_plot)
+
+    axs.hist(new_dist,alpha=0.5)
+    axs.set_title("New Distrubtion for" + feature_to_plot)
+
+    st.pyplot(fig)
