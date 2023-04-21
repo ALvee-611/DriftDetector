@@ -9,6 +9,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import os
 import joblib
+import altair as alt
 
 
 def generate_data(n_samples):
@@ -108,11 +109,18 @@ def load_model(model_name):
 
 #save_to_db(new_data)
 
+@st.cache_resource
+def get_num_cat_columns(data):
+    numerical_cols = data.select_dtypes(include=np.number).columns.tolist()
+    categorical_cols = data.select_dtypes(include=['object']).columns.tolist()
+
+    return numerical_cols, categorical_cols
+
 
 def detect_data_drift(reference_data, new_data, threshold=0.05):
     
     drift_features = []
-    drift_features_cat = []
+    #drift_features_cat = []
     
     # check feature types and calculate distance for each feature
     for feature in reference_data.columns:
@@ -126,46 +134,103 @@ def detect_data_drift(reference_data, new_data, threshold=0.05):
                 #drift_dict['ks_2samp'] = p_val
                 drift_features.append(feature)
                 #feature_names.append(feature)
-        else:
-            #feature_types[feature] = 'categorical'
-            old_distribution = pd.crosstab(old_batch, new_batch)
-            chi2_stat, p_val, dof, expected = chi2_contingency(old_distribution)
-            if p_val < threshold:
-                drift_features_cat.append(feature)
-                #feature_names_cat.append(feature)
-    return drift_features_cat, drift_features
+        # else:
+        #     freq1 = np.bincount(old_batch)
+        #     freq2 = np.bincount(new_batch)
 
+        #     contingency_table = np.array([freq1, freq2])
+
+        #     stat, pval, dof, expected = chi2_contingency(contingency_table)
+        #     # #feature_types[feature] = 'categorical'
+        #     # old_batch_codes, _ = pd.factorize(old_batch)
+        #     # new_batch_codes, _ = pd.factorize(new_batch)
+        #     # old_distribution = pd.crosstab(old_batch_codes, new_batch_codes)
+        #     # chi2_stat, p_val, dof, expected = chi2_contingency(old_distribution)
+        #     # if p_val < threshold:
+        #     #     drift_features_cat.append(feature)
+        #     #     #feature_names_cat.append(feature)
+
+        #     # cont_table = pd.crosstab(old_batch, new_batch)
+        #     # chi2_statistic, p_val, dof, expected = chi2_contingency(cont_table)
+        #     if p_val < threshold:
+        #         drift_features_cat.append(feature)
+
+    #return drift_features_cat, drift_features
+    return drift_features
+
+
+# def psi_numeric(observed, expected):
+#     buckets = 10
+
+
+#     # Calculate the bucket boundaries
+#     boundaries = np.quantile(observed.index.values, np.linspace(0, 1, buckets + 1))
+#     boundaries[0] = -np.inf
+#     boundaries[-1] = np.inf
+
+#     # Group the observed and expected data based on the bucket boundaries
+#     observed_groups = observed.groupby(pd.cut(observed.index.values, boundaries)).count()
+#     expected_groups = expected.groupby(pd.cut(expected.index.values, boundaries)).count()
+
+#     # Calculate the observed and expected proportions for each group
+#     observed_proportions = observed_groups / observed.sum()
+#     expected_proportions = expected_groups / expected.sum()
+
+#     # Add missing buckets to expected proportions
+#     missing_buckets = observed_proportions.index.difference(expected_proportions.index)
+#     for bucket in missing_buckets:
+#         expected_proportions[bucket] = 0
+
+#     # Sort the data by the bucket boundaries
+#     observed_proportions.sort_index(inplace=True)
+#     expected_proportions.sort_index(inplace=True)
+
+#     # Calculate the PSI value
+#     psi_value = np.sum((observed_proportions - expected_proportions) * np.log(observed_proportions / expected_proportions)) * 100
+
+#     return psi_value
 
 def psi_numeric(observed, expected):
-    buckets = 10
+    # Calculate the difference between the mean of the observed and expected data
+    diff = abs(observed.mean() - expected.mean())
+    
+    # Set a threshold for detecting drift
+    threshold = 0.1 * abs(expected.mean())
+    
+    # If the difference exceeds the threshold, return the PSI value
+    if diff > threshold:
+        buckets = 10
+
+        # Calculate the bucket boundaries
+        boundaries = np.quantile(observed.index.values, np.linspace(0, 1, buckets + 1))
+        boundaries[0] = -np.inf
+        boundaries[-1] = np.inf
+
+        # Group the observed and expected data based on the bucket boundaries
+        observed_groups = observed.groupby(pd.cut(observed.index.values, boundaries)).count()
+        expected_groups = expected.groupby(pd.cut(expected.index.values, boundaries)).count()
+
+        # Calculate the observed and expected proportions for each group
+        observed_proportions = observed_groups / observed.sum()
+        expected_proportions = expected_groups / expected.sum()
+
+        # Add missing buckets to expected proportions
+        missing_buckets = observed_proportions.index.difference(expected_proportions.index)
+        for bucket in missing_buckets:
+            expected_proportions[bucket] = 0
+
+        # Sort the data by the bucket boundaries
+        observed_proportions.sort_index(inplace=True)
+        expected_proportions.sort_index(inplace=True)
+
+        # Calculate the PSI value
+        psi_value = np.sum((observed_proportions - expected_proportions) * np.log(observed_proportions / expected_proportions)) * 100
+
+        return psi_value
+    else:
+        return 0.0
 
 
-    # Calculate the bucket boundaries
-    boundaries = np.quantile(observed.index.values, np.linspace(0, 1, buckets + 1))
-    boundaries[0] = -np.inf
-    boundaries[-1] = np.inf
-
-    # Group the observed and expected data based on the bucket boundaries
-    observed_groups = observed.groupby(pd.cut(observed.index.values, boundaries)).count()
-    expected_groups = expected.groupby(pd.cut(expected.index.values, boundaries)).count()
-
-    # Calculate the observed and expected proportions for each group
-    observed_proportions = observed_groups / observed.sum()
-    expected_proportions = expected_groups / expected.sum()
-
-    # Add missing buckets to expected proportions
-    missing_buckets = observed_proportions.index.difference(expected_proportions.index)
-    for bucket in missing_buckets:
-        expected_proportions[bucket] = 0
-
-    # Sort the data by the bucket boundaries
-    observed_proportions.sort_index(inplace=True)
-    expected_proportions.sort_index(inplace=True)
-
-    # Calculate the PSI value
-    psi_value = np.sum((observed_proportions - expected_proportions) * np.log(observed_proportions / expected_proportions)) * 100
-
-    return psi_value
 
 def psi_cat(ref_feature, new_feature):
     # Calculate distribution of actual and expected values
@@ -181,22 +246,34 @@ def psi_cat(ref_feature, new_feature):
 
     return psi_value
 
-
-def calculate_psi(old_batch, current_batch, threshold=0.1):
+def calculate_psi(old_batch, current_batch):
     drift_features = []
 
     for feature in old_batch.columns:
         df_1 = old_batch[feature]
         df_2 = current_batch[feature]
+
+        if np.issubdtype(df_1.dtype, np.number):
+            psi_threshold = 0.1 * abs(df_1.mean())
+            # psi_threshold = 0.1 # Change this value to set the desired PSI threshold
+        else:
+            psi_threshold = 0.05
+
+        # fpr, tpr, thresholds = roc_curve(df_1, df_2)
+        # optimal_idx = np.argmax(tpr - fpr)
+        # optimal_threshold = thresholds[optimal_idx]
+
         if np.issubdtype(df_1.dtype, np.number):
             stat = psi_numeric(df_1, df_2)
 
-            if stat > threshold:
+            # if stat > optimal_threshold:
+            if stat > psi_threshold:#psi_threshold * abs(np.log(1/psi_threshold)):
                 drift_features.append(feature)
         else:
             stat = psi_cat(df_1, df_2)
 
-            if stat > threshold:
+            # if stat > optimal_threshold:
+            if stat > psi_threshold: #* abs(np.log(1/psi_threshold)):
                 drift_features.append(feature)
     return drift_features
 
@@ -308,9 +385,10 @@ def drift_detector(old_data, new_data):
     drift_dict = defaultdict()
 
     # KS_test and Chi_sq test for numeric and categorical features respectively
-    cat_features, num_features = detect_data_drift(old_data, new_data, threshold=0.05)
+    #cat_features, 
+    num_features = detect_data_drift(old_data, new_data, threshold=0.05)
     drift_dict['KS_test'] = num_features
-    drift_dict['Chi_Sq'] = cat_features
+    #drift_dict['Chi_Sq'] = cat_features
 
     psi_features = calculate_psi(old_data, new_data)
     drift_dict['PSI'] = psi_features
@@ -330,18 +408,145 @@ def drift_detector(old_data, new_data):
 
     return drift_dict, any_drift
 
+# @st.cache_resource
+# def draw_fig(old_df, new_df, feature_to_plot):
+#     old_dist = old_df[feature_to_plot]
+#     new_dist = new_df[feature_to_plot]
+#     if np.issubdtype(old_df[feature_to_plot].dtype, np.number):
+#         # Create a figure with two subplots
+#         fig, axs = plt.subplots(1, 1)
+
+#         axs.hist(old_dist, alpha=0.5, label='Old Batch')
+#         axs.set_title("Old Distrubtion for " + feature_to_plot)
+
+#         axs.hist(new_dist,alpha=0.5, label='New Batch')
+#         axs.set_title("New Distrubtion for " + feature_to_plot)
+
+#         axs.legend()
+
+#         st.pyplot(fig)
+#     else:
+#         # Find categorical drift features
+#         fig, axs = plt.subplots(1, 1)
+
+#         axs.bar(x=range(len(old_dist)), height=old_dist, alpha=0.5, label='Old Batch')
+#         axs.bar(x=range(len(new_dist)), height=new_dist, alpha=0.5, label='New Batch')
+#         axs.set_title("Old Distrubtion for " + feature_to_plot)
+
+#         #axs.bar(new_dist,alpha=0.5, label='New Batch')
+#         axs.set_title("New Distribtion for " + feature_to_plot)
+
+#         axs.legend()
+
+#         st.pyplot(fig)
+
 @st.cache_resource
 def draw_fig(old_df, new_df, feature_to_plot):
     old_dist = old_df[feature_to_plot]
     new_dist = new_df[feature_to_plot]
+    
+    if np.issubdtype(old_df[feature_to_plot].dtype, np.number):
+        iqr = np.percentile(old_dist, 75) - np.percentile(old_dist, 25)
+        print(iqr)
+        # bin_width = 2 * iqr / (len(old_dist) ** (1/3))
+        bin_width = 2 * iqr / (len(old_dist) ** (1/3))
+        if bin_width == 0:
+            bin_width = 2 * iqr / (1/3)
+            #num_bins = int(np.ceil((old_dist.max() - old_dist.min()) / bin_width))
+        # except:
+        #     bin_width = 2 * iqr / (1/3)
+        num_bins = 15 #int(np.ceil((old_dist.max() - old_dist.min()) / 10))  ##### #BUG #######
+        # if bin_width == 0:
+        #     num_bins = 10
+        # Create a figure with two subplots
+        fig, axs = plt.subplots(1, 1)
 
-    # Create a figure with two subplots
-    fig, axs = plt.subplots(1, 1, figsize=(10, 4))
+        axs.hist(old_dist, alpha=0.6, label='Old Batch', bins=num_bins, edgecolor='black')
+        axs.hist(new_dist,alpha=0.6, label='New Batch', bins=num_bins, edgecolor='black')
+        axs.set_title("Distribution for " + feature_to_plot)
 
-    axs.hist(old_dist, alpha=0.5)
-    axs.set_title("Old Distrubtion for" + feature_to_plot)
+        axs.legend()
 
-    axs.hist(new_dist,alpha=0.5)
-    axs.set_title("New Distrubtion for" + feature_to_plot)
+        st.pyplot(fig)
+    else:
+        # Find categorical drift features
+        print(old_dist)
+        old_dist_counts = old_dist.value_counts()
+        new_dist_counts = new_dist.value_counts()
+        all_categories = set(old_dist.unique()) | set(new_dist.unique())
+        all_categories = sorted(all_categories)
 
-    st.pyplot(fig)
+        old_dist_counts = [old_dist_counts.get(c, 0) for c in all_categories]
+        new_dist_counts = [new_dist_counts.get(c, 0) for c in all_categories]
+
+        df = pd.concat([pd.Series(old_dist_counts, name='Old Batch'), 
+                        pd.Series(new_dist_counts, name='New Batch')], axis=1)
+
+        # Create a horizontal bar plot
+        fig, axs = plt.subplots(1, 1)
+        df.plot(kind='barh', ax=axs)
+        axs.set_yticks(range(len(all_categories)))
+        axs.set_yticklabels(all_categories)
+        axs.invert_yaxis()
+        axs.set_title("Distribution for " + feature_to_plot)
+
+        st.pyplot(fig)
+
+
+
+### Introduce categorical drift
+@st.cache_resource
+def cat_drift(data, feature_name, drift_type='GRADUAL'):
+
+    num_steps = 15
+    # Get current category names and probabilities
+    cat_prob_now = data[feature_name].value_counts(normalize=True).sort_index().values
+    cat_names = data[feature_name].value_counts(normalize=True).sort_index().index
+
+    alpha = [1] * len(cat_prob_now)
+    new_cat_prob = np.random.dirichlet(alpha, size=1).flatten() * sum(cat_prob_now)
+
+    new_prob = new_cat_prob.tolist()
+
+    new_data = pd.DataFrame()
+
+    # Gradual drift
+    if drift_type == 'GRADUAL':
+        step_sizes = [(new_p - curr_p) / num_steps for new_p, curr_p in zip(new_prob, cat_prob_now)]
+        
+        # new probabilities for each step added gradually
+        for i in range(num_steps+1):
+
+            # Calculate new probabilities for this step
+            step_prob = [curr_prob + (step_size * i) for curr_prob, step_size in zip(cat_prob_now, step_sizes)]
+            step_prob = np.clip(step_prob, 0, 1) 
+            
+            # Create a new DataFrame with the drifted data for this step
+            step_data = data.copy()
+            step_data[feature_name] = np.random.choice(cat_names, size=len(data), p=step_prob)
+            
+            # AddING new data to the main DataFrame
+            new_data = pd.concat([new_data, step_data], axis=0)
+    
+    # Sudden drift
+    elif drift_type == 'SUDDEN':
+        # Create a new DataFrame with the drifted data
+        new_data = data.copy()
+        new_data[feature_name] = np.random.choice(cat_names, size=len(data), p=new_prob)
+    
+    return np.random.choice(cat_names, size=len(data), p=new_prob)
+
+## DRIFT FOR NUMERIC DATA
+@st.cache_resource
+def num_drift(data, feature_name, drift_type='GRADUAL'):
+    data_to_drift = data[feature_name]
+
+    if drift_type == 'GRADUAL':
+        delta = np.linspace(0, data_to_drift.mean() * 0.2, len(data_to_drift))
+        new_drift_data = data_to_drift + delta
+    else:
+        sudden = data_to_drift.mean() * 0.2
+        new_drift_data = data_to_drift + sudden
+
+    #data[feature_name] = new_drift_data
+    return new_drift_data
