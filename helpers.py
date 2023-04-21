@@ -7,6 +7,8 @@ from scipy.stats import ks_2samp, chi2_contingency
 import scipy.stats as stats
 import streamlit as st
 import matplotlib.pyplot as plt
+import os
+import joblib
 
 
 def generate_data(n_samples):
@@ -94,17 +96,11 @@ def create_label(row):
     else:
         return 1  
 
-
-def save_to_db(data):
-    # Connect to an SQLite database
-    conn = sqlite3.connect('example.db')
-
-    # Save the DataFrame to a table in the database
-    data.to_sql('Tab', conn, index=False)
-
-    # Close the database connection
-    conn.close()
-
+@st.cache_resource
+def load_model(model_name):
+    path = os.path.join('assets', model_name)
+    model = joblib.load(path)
+    return model
 
 #new_data = generate_data(5000)
 # apply the function to create the classification label for each row in the dataset
@@ -285,8 +281,17 @@ def test_for_drift(ref_data, prod_data, numerical_weights=None, threshold=0.1):
 ## Model KPIs
 
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, roc_curve
+from joblib import load
 
-def calculate_model_KPI(y_true, y_pred):
+def calculate_model_KPI(model, new_df):
+    Preprocess = load('assets/preprocess_pipeline.joblib')
+    y_true = new_df['Attrition']
+    new_df['OverTime'] = new_df['OverTime'].apply(lambda x: 1 if x == 'Yes' else 0)
+    X_df = new_df.drop('Attrition', axis=1)
+    new_data = Preprocess.transform(X_df)
+    X = pd.DataFrame(new_data)
+    y_pred = model.predict(X)
+
     # assuming y_true and y_pred are the true and predicted labels, respectively
     accuracy = accuracy_score(y_true, y_pred)
     precision = precision_score(y_true, y_pred)
@@ -294,18 +299,9 @@ def calculate_model_KPI(y_true, y_pred):
     f1 = f1_score(y_true, y_pred)
     auc_roc = roc_auc_score(y_true, y_pred)
     cm = confusion_matrix(y_true, y_pred)
-    return accuracy, precision, recall, f1, auc_roc, cm
-
-def plot_roc(y_true, y_pred):
     fpr, tpr, thresholds = roc_curve(y_true, y_pred)
-    return fpr, tpr, thresholds
-    
-# # plot the ROC curve
-# plt.plot(fpr, tpr)
-# plt.xlabel('False Positive Rate')
-# plt.ylabel('True Positive Rate')
-# plt.title('ROC Curve')
-# plt.show()
+    return accuracy, precision, recall, f1, auc_roc, cm, fpr, tpr, thresholds
+
 
 @st.cache_resource
 def drift_detector(old_data, new_data):
