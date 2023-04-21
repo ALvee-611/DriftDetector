@@ -72,7 +72,7 @@ with tab1:
    st.text('This is the live overview of the Model Performance where data is being added in batch and the true Attrition label is not known.')
    
 
-   col_pred, col_stat = st.columns([1,2])
+   col_pred, col_stat = st.columns([1,1])
    
    with col_pred:
         # Pie chart, where the slices will be ordered and plotted counter-clockwise:

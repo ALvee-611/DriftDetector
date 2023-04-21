@@ -1,5 +1,5 @@
 drift
-Batch_1.csv
-Batch_2.csv
+# Batch_1.csv
+# Batch_2.csv
 rf_model.joblib
 __pycache__/
