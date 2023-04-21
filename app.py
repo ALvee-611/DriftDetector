@@ -23,6 +23,8 @@ def get_data(dataset_url) -> pd.DataFrame:
 df_1 = get_data(dataset_1)
 df_2 = get_data(dataset_2)
 
+total_pred = df_1["Attrition"].shape[0] + df_2["Attrition"].shape[0]
+
 # dashboard title
 st.title("Drift Detection Dashboard")
 
@@ -34,9 +36,14 @@ predictions_2 = df_2['Attrition']
 contingency_table = pd.crosstab(predictions_1, predictions_2)
 
 
-# perform the chi-squared test
-#chi2, p, dof, expected = stats.chi2_contingency(contingency_table)
+accuracy, precision, recall, f1 = 1,2,3,4
 
+comparing_predictions = compare_preds(df_1, df_2)
+
+if comparing_predictions:
+   res = "statistically same"
+else:
+   res = "statistically different"
 
 tab1, tab2, tab3 = st.tabs(["Drift Monitoring Dashboard", "Model Performance", "About"])
 
@@ -45,10 +52,11 @@ with tab1:
    st.caption('This is the live overview of the Model Performance where data is being added in batch and the true Attrition label is not known.')
    st.write("---")
    
-   col1, col2, col3 = st.columns([1,1,1])
-   col1.metric("Total Predictions", "300")
-   col2.metric("Model Used", "XGBoost")
-   col3.metric("Total Features with Potential Data Drift", "0", "0")
+   col1, col2, col3, col4 = st.columns([1,1,1,1])
+   col1.metric("Total Predictions", total_pred)
+   col2.metric("Current Batch Predictions VS Last Batch Predictions", res)
+   col3.metric("Model Used", "XGBoost")
+   col4.metric("Total Features with Potential Data Drift", "0", "0")
 
    st.title("Model Prediction on Current Batch VS Old Batch")
    st.text('This is the live overview of the Model Performance where data is being added in batch and the true Attrition label is not known.')
@@ -66,8 +74,8 @@ with tab1:
 
         st.pyplot(fig1, use_container_width = True)
    with col_stat:
-      if False:
-            st.markdown('<p style="color: green; font-size:3rem;"><i class="fas fa-check-circle"></i> No significant difference</p>', unsafe_allow_html=True)
+      if comparing_predictions:
+            st.markdown('<p style="color: green; font-size:3rem; text-align: center;"><i class="fas fa-check-circle"></i> No significant difference between the two sets of predictions!</p>', unsafe_allow_html=True)
       else:
             st.markdown("""<p style="color: red; font-size:3rem; text-align:center;"><i class="fas fa-check-circle"></i> Failure</p>
                         <p style="text-align: center;">This gives us  </p>""", unsafe_allow_html=True)
@@ -82,11 +90,11 @@ with tab1:
       st.subheader("Distance-Based Approach to detecting Covariare Drift")
       st.text("Here we are checking if there is any feature drift using distanced based approach:")
    with col_stat_check:
-      if True:
+      if test_for_drift(df_1, df_2):
             st.markdown('<p style="color: green; font-size:3rem;"><i class="fas fa-check-circle"></i> No significant difference</p>', unsafe_allow_html=True)
       else:
             st.markdown("""<p style="color: red; font-size:3rem; text-align:center;"><i class="fas fa-check-circle"></i> Failure</p>
-                        <p style="text-align: center;">This gives us  </p>""", unsafe_allow_html=True)
+                        """, unsafe_allow_html=True)
       with st.expander("See explanation"):
          st.write("""
                   The chart the code used to get this:
@@ -100,38 +108,36 @@ with tab1:
    col_desc,col_space, col_stat_check = st.columns([2,1,2])
 
    with col_desc:
-      st.subheader("Distance-Based Approach to detecting Covariare Drift")
+      st.subheader("Statistical Tests to detect Covariare Drift")
       st.text("Here we are checking if there is any feature drift using distanced based approach:")
    with col_stat_check:
-      if True:
+      x, any_true = drift_detector(df_1,df_2)
+      if any_true:
             st.markdown('<p style="color: green; font-size:3rem;"><i class="fas fa-check-circle"></i> No significant difference</p>', unsafe_allow_html=True)
       else:
             st.markdown("""<p style="color: red; font-size:3rem; text-align:center;"><i class="fas fa-check-circle"></i> Failure</p>
                         <p style="text-align: center;">This gives us  </p>""", unsafe_allow_html=True)
-      with st.expander("See explanation"):
-         st.write("""
-                  The chart the code used to get this:
-               """)
-         st.text("Here I explain the approach")
+   with st.expander("See explanation"):
+      table_col = st.columns([1,2,1])
+      with table_col[1]:
+         for k in x.keys():
+            for i in x[k]:
+               st.title("from '" + k + "' test:")
+               draw_fig(df_1, df_2, i)
    
    st.write("---")
 
-   # with col2:
-   #  st.subheader("Prediction on Current Batch VS Last Batch")
-   #  st.table(contingency_table)
-
-   # data= {'Attrition_last': df_1['Attrition'].value_counts(), 'Attrition_current': df_2["Attrition"].value_counts()}
-   # df = pd.DataFrame(data)
-
-   # df
-   # st.bar_chart(df)
-   
 with tab2:
+   
+   st.title("Monitoring Model Performance:")
+   st.text("""Here we are tracking all the useful metrics to make sure our model is performing well. We are using XGBoost since it had the best performance out of all the models trained on the training data.
+           """)
+   
    col1, col2, col3, col4 = st.columns([1,1,1,1])
-   col1.metric("Total Predictions", "300")
-   col2.metric("Current Batch VS Last Batch", "statistically same")
-   col3.metric("Current Batch VS Last Batch", "statistically same")
-   col4.metric("Total Features with Potential Data Drift", "0", "0")
+   col1.metric("Model Accuracy", accuracy)
+   col2.metric("Model Precision", precision)
+   col3.metric("Model Recall", recall)
+   col4.metric("F1 Score", f1)
 
 with tab3:
    st.header("Data Drift")
@@ -150,4 +156,4 @@ with tab3:
 
 
 
-st.write(drift_detector(df_1, df_2))
+#st.write(drift_detector(df_1, df_2))
