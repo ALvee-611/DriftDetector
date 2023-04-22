@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import sqlite3
+
 from scipy.stats import truncnorm
 from collections import defaultdict
 from scipy.stats import ks_2samp, chi2_contingency
@@ -9,7 +9,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import os
 import joblib
-import altair as alt
+
 
 
 def generate_data(n_samples):
@@ -259,21 +259,16 @@ def calculate_psi(old_batch, current_batch):
         else:
             psi_threshold = 0.05
 
-        # fpr, tpr, thresholds = roc_curve(df_1, df_2)
-        # optimal_idx = np.argmax(tpr - fpr)
-        # optimal_threshold = thresholds[optimal_idx]
-
         if np.issubdtype(df_1.dtype, np.number):
             stat = psi_numeric(df_1, df_2)
 
             # if stat > optimal_threshold:
-            if stat > psi_threshold:#psi_threshold * abs(np.log(1/psi_threshold)):
+            if stat > psi_threshold:
                 drift_features.append(feature)
         else:
             stat = psi_cat(df_1, df_2)
 
-            # if stat > optimal_threshold:
-            if stat > psi_threshold: #* abs(np.log(1/psi_threshold)):
+            if stat > psi_threshold:
                 drift_features.append(feature)
     return drift_features
 
@@ -408,71 +403,21 @@ def drift_detector(old_data, new_data):
 
     return drift_dict, any_drift
 
-# @st.cache_resource
-# def draw_fig(old_df, new_df, feature_to_plot):
-#     old_dist = old_df[feature_to_plot]
-#     new_dist = new_df[feature_to_plot]
-#     if np.issubdtype(old_df[feature_to_plot].dtype, np.number):
-#         # Create a figure with two subplots
-#         fig, axs = plt.subplots(1, 1)
-
-#         axs.hist(old_dist, alpha=0.5, label='Old Batch')
-#         axs.set_title("Old Distrubtion for " + feature_to_plot)
-
-#         axs.hist(new_dist,alpha=0.5, label='New Batch')
-#         axs.set_title("New Distrubtion for " + feature_to_plot)
-
-#         axs.legend()
-
-#         st.pyplot(fig)
-#     else:
-#         # Find categorical drift features
-#         fig, axs = plt.subplots(1, 1)
-
-#         axs.bar(x=range(len(old_dist)), height=old_dist, alpha=0.5, label='Old Batch')
-#         axs.bar(x=range(len(new_dist)), height=new_dist, alpha=0.5, label='New Batch')
-#         axs.set_title("Old Distrubtion for " + feature_to_plot)
-
-#         #axs.bar(new_dist,alpha=0.5, label='New Batch')
-#         axs.set_title("New Distribtion for " + feature_to_plot)
-
-#         axs.legend()
-
-#         st.pyplot(fig)
-
-@st.cache_resource
-def draw_fig(old_df, new_df, feature_to_plot):
-    old_dist = old_df[feature_to_plot]
-    new_dist = new_df[feature_to_plot]
-    
-    if np.issubdtype(old_df[feature_to_plot].dtype, np.number):
-        iqr = np.percentile(old_dist, 75) - np.percentile(old_dist, 25)
-        print(iqr)
-        # bin_width = 2 * iqr / (len(old_dist) ** (1/3))
-        bin_width = 2 * iqr / (len(old_dist) ** (1/3))
-        if bin_width == 0:
-            bin_width = 2 * iqr / (1/3)
-            #num_bins = int(np.ceil((old_dist.max() - old_dist.min()) / bin_width))
-        # except:
-        #     bin_width = 2 * iqr / (1/3)
-        num_bins = 15 #int(np.ceil((old_dist.max() - old_dist.min()) / 10))  ##### #BUG #######
-        # if bin_width == 0:
-        #     num_bins = 10
-        # Create a figure with two subplots
-        fig, axs = plt.subplots(1, 1)
-
-        axs.hist(old_dist, alpha=0.6, label='Old Batch', bins=num_bins, edgecolor='black')
-        axs.hist(new_dist,alpha=0.6, label='New Batch', bins=num_bins, edgecolor='black')
-        axs.set_title("Distribution for " + feature_to_plot)
-
-        axs.legend()
-
-        st.pyplot(fig)
+#@st.cache_resource
+def draw_fig(dataset1, dataset2, feature):
+    fig, axes = plt.subplots(nrows=1, ncols=1)
+    old_dist = dataset1[feature]
+    new_dist = dataset2[feature]
+    # for i, feature in enumerate(features):
+    if dataset1[feature].dtype in [int, float]:
+        dataset1[feature].hist(ax=axes, alpha=0.5, label= 'Old Batch', edgecolor='black', bins = 10)
+        dataset2[feature].hist(ax=axes, alpha=0.5, label= 'New Batch', edgecolor='black', bins =10)
+        axes.set_title("Distribution for " + feature)
+        axes.legend()
     else:
-        # Find categorical drift features
-        print(old_dist)
         old_dist_counts = old_dist.value_counts()
         new_dist_counts = new_dist.value_counts()
+
         all_categories = set(old_dist.unique()) | set(new_dist.unique())
         all_categories = sorted(all_categories)
 
@@ -480,17 +425,47 @@ def draw_fig(old_df, new_df, feature_to_plot):
         new_dist_counts = [new_dist_counts.get(c, 0) for c in all_categories]
 
         df = pd.concat([pd.Series(old_dist_counts, name='Old Batch'), 
-                        pd.Series(new_dist_counts, name='New Batch')], axis=1)
+                         pd.Series(new_dist_counts, name='New Batch')], axis=1)
+    
+        df.plot(kind='bar', ax=axes)
+        axes.set_title("Distribution for " + feature)
+        
+    st.pyplot(fig)
 
-        # Create a horizontal bar plot
-        fig, axs = plt.subplots(1, 1)
-        df.plot(kind='barh', ax=axs)
-        axs.set_yticks(range(len(all_categories)))
-        axs.set_yticklabels(all_categories)
-        axs.invert_yaxis()
-        axs.set_title("Distribution for " + feature_to_plot)
+def draw_figures(feature, old_dist, new_dist, numerical_col):
+    fig, ax = plt.subplots()
+    if feature in numerical_col:
+        iqr = np.percentile(old_dist, 75) - np.percentile(old_dist, 25)
+        if iqr == 0:
+            bin_width = 1
+        else:
+            bin_width = 2 * iqr / (len(old_dist) ** (1/3))
 
-        st.pyplot(fig)
+        num_bins = int(np.ceil((old_dist.max() - old_dist.min()) / bin_width))
+
+        ax.hist(old_dist, alpha=0.6, label='Old Batch', bins=num_bins, edgecolor='black')
+        ax.hist(new_dist,alpha=0.6, label='New Batch', bins=num_bins, edgecolor='black')
+        ax.set_title("Distribution for " + feature)
+        ax.legend()
+    else:
+        old_dist_counts = old_dist.value_counts()
+        new_dist_counts = new_dist.value_counts()
+        categories = set(list(old_dist_counts.index) + list(new_dist_counts.index))
+
+        old_counts = [old_dist_counts.get(cat, 0) for cat in categories]
+        new_counts = [new_dist_counts.get(cat, 0) for cat in categories]
+
+        x = np.arange(len(categories))
+        width = 0.35
+
+        rects1 = ax.bar(x - width/2, old_counts, width, alpha=0.6, label='Old Batch')
+        rects2 = ax.bar(x + width/2, new_counts, width, alpha=0.6, label='New Batch')
+        ax.set_xticks(x)
+        ax.set_xticklabels(categories)
+        ax.set_title("Distribution for " + feature)
+        ax.legend()
+
+    st.pyplot(fig)
 
 
 
@@ -542,10 +517,10 @@ def num_drift(data, feature_name, drift_type='GRADUAL'):
     data_to_drift = data[feature_name]
 
     if drift_type == 'GRADUAL':
-        delta = np.linspace(0, data_to_drift.mean() * 0.2, len(data_to_drift))
+        delta = np.linspace(0, data_to_drift.mean() * 0.5, len(data_to_drift))
         new_drift_data = data_to_drift + delta
     else:
-        sudden = data_to_drift.mean() * 0.2
+        sudden = data_to_drift.mean() * 0.75
         new_drift_data = data_to_drift + sudden
 
     #data[feature_name] = new_drift_data
