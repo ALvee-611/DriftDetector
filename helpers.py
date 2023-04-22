@@ -403,34 +403,34 @@ def drift_detector(old_data, new_data):
 
     return drift_dict, any_drift
 
-#@st.cache_resource
-def draw_fig(dataset1, dataset2, feature):
-    fig, axes = plt.subplots(nrows=1, ncols=1)
-    old_dist = dataset1[feature]
-    new_dist = dataset2[feature]
-    # for i, feature in enumerate(features):
-    if dataset1[feature].dtype in [int, float]:
-        dataset1[feature].hist(ax=axes, alpha=0.5, label= 'Old Batch', edgecolor='black', bins = 10)
-        dataset2[feature].hist(ax=axes, alpha=0.5, label= 'New Batch', edgecolor='black', bins =10)
-        axes.set_title("Distribution for " + feature)
-        axes.legend()
-    else:
-        old_dist_counts = old_dist.value_counts()
-        new_dist_counts = new_dist.value_counts()
+# #@st.cache_resource
+# def draw_fig(dataset1, dataset2, feature):
+#     fig, axes = plt.subplots(nrows=1, ncols=1)
+#     old_dist = dataset1[feature]
+#     new_dist = dataset2[feature]
+#     # for i, feature in enumerate(features):
+#     if dataset1[feature].dtype in [int, float]:
+#         dataset1[feature].hist(ax=axes, alpha=0.5, label= 'Old Batch', edgecolor='black', bins = 10)
+#         dataset2[feature].hist(ax=axes, alpha=0.5, label= 'New Batch', edgecolor='black', bins =10)
+#         axes.set_title("Distribution for " + feature)
+#         axes.legend()
+#     else:
+#         old_dist_counts = old_dist.value_counts()
+#         new_dist_counts = new_dist.value_counts()
 
-        all_categories = set(old_dist.unique()) | set(new_dist.unique())
-        all_categories = sorted(all_categories)
+#         all_categories = set(old_dist.unique()) | set(new_dist.unique())
+#         all_categories = sorted(all_categories)
 
-        old_dist_counts = [old_dist_counts.get(c, 0) for c in all_categories]
-        new_dist_counts = [new_dist_counts.get(c, 0) for c in all_categories]
+#         old_dist_counts = [old_dist_counts.get(c, 0) for c in all_categories]
+#         new_dist_counts = [new_dist_counts.get(c, 0) for c in all_categories]
 
-        df = pd.concat([pd.Series(old_dist_counts, name='Old Batch'), 
-                         pd.Series(new_dist_counts, name='New Batch')], axis=1)
+#         df = pd.concat([pd.Series(old_dist_counts, name='Old Batch'), 
+#                          pd.Series(new_dist_counts, name='New Batch')], axis=1)
     
-        df.plot(kind='bar', ax=axes)
-        axes.set_title("Distribution for " + feature)
+#         df.plot(kind='bar', ax=axes)
+#         axes.set_title("Distribution for " + feature)
         
-    st.pyplot(fig)
+#     st.pyplot(fig)
 
 def draw_figures(feature, old_dist, new_dist, numerical_col):
     fig, ax = plt.subplots()
