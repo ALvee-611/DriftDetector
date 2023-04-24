@@ -47,24 +47,17 @@ accuracy, precision, recall, f1, auc_roc, cm, fpr, tpr, thresholds = calculate_m
 # dashboard title
 st.title("Drift Detection Dashboard")
 
-st.header('Drift Detection Dashboard')
-st.text('This is the live overview of the Model Performance where data is being added in batch and the true Attrition label is not known.')
-st.markdown("""One of the major tasks for any data sceintist is to constantly monitor the performance of the ML models that have been deployed into production. The deployed model may start to perform poorly over time. This can happen for various reasons: changes in the data distribution, changes in the data generating process or changes in the model itself. Model performance degradation is a real problem which can lead to incorrect predictions and so need to be continuously monitored and retrained incase a loss of performance is detected.
-
-One of the main reasons for a loss in performance is due to `Data Drift`. Data changes over time and these changes cause the model which was trained on old data to be inconsistent and unable to produce similar results using the new data. Once such change could be changes in the input variables used to make the predictions. The distribution of the inpit variables could change or the relationship between the input variables and target variables could change. This is called `Covariate drift`.
-   
-We will start by implementing a framework to detect such changes in the distribution of the input variables.""")
+st.subheader('This is the live overview of the Model Performance where data is being added in batch and the true Attrition label is not known.')
+st.markdown("""This allows the users visualize and monitor changes in the data distributions and ML model performance changes. It randomly introduces sudden or gradual drift in 3 features which then get detected by the underlying data detection framework working in the background.""")
 st.write("---")
 
-placeholder = st.empty()
-placeholder_multi = st.empty()
 
-
-st.header("Choose features you want to add variations to:")
-st.text("Once you have chosen the features, this drift detection framework will detect the changes using different methods:")
-st.markdown(" ")
+# st.header("Choose features you want to add variations to:")
+# st.text("Once you have chosen the features, this drift detection framework will detect the changes using different methods:")
+# st.markdown(" ")
 
 st.subheader("Choose 3 features randomly")
+st.text("Once you have chosen the features, this drift detection framework will detect the changes using different methods:")
 if st.button("Random features"):
    random_col_names = random.sample(all_columns, k=3)
    st.write(random_col_names)
@@ -74,7 +67,7 @@ feature_statement = ""
 for i in st.session_state['features_chosen']:
    feature_statement = feature_statement + ' ' + str(i) 
 st.subheader("You have Chosen: " + feature_statement)
-
+st.write("---")
 # st.header("OR")
 
 # st.subheader("Choose the features you want to add drift to (max 5):")
@@ -121,7 +114,7 @@ if st.session_state['show_options']:
 
    #col1, col2, col3 = st.columns([1,3,2])
    #col2.metric("Current Batch True Labels VS Last Batch True Labels", res)
-
+   st.subheader('Model KPI:')
    col1, col2, col3, col4 = st.columns([1,1,1,1])
    col1.metric("Model Accuracy", str((round(accuracy,2) * 100)) + "%")
    col2.metric("Model Precision", str((round(precision,3)* 100)) + "%")
@@ -131,23 +124,26 @@ if st.session_state['show_options']:
    st.markdown("  ")
 
    if accuracy > 0.75 and f1 > 0.75:
-      st.markdown('<p style="color: green; font-size:2rem; text-align: center;"><i class="fas fa-check-circle"></i>Model Performing fine with no need for retraining</p>', unsafe_allow_html=True)
+      st.markdown('<p style="color: green; font-size:2rem; text-align: center;"><i class="fas fa-check-circle"></i> Model Performing fine with no need for retraining</p>', unsafe_allow_html=True)
    else:
       st.markdown("""<p style="color: red; font-size:2rem; text-align:center;"><i class="fas fa-check-circle"></i> Warning!</p>
                         <p style="text-align: center;">Model Needs retraining since accuracy fell below 0.8 threshold!</p>""", unsafe_allow_html=True)
+      
+   st.write("---")
 
    col_pred, col_stat = st.columns([1,1])
    
    with col_pred:
       # Pie chart, where the slices will be ordered and plotted counter-clockwise:
-      labels = 'Yes', 'No'
-      sizes = [629, 1135]
-      fig1, ax1 = plt.subplots()
-      ax1.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
-      ax1.axis('equal')
-      ax1.set_title('Breakdown of Prediction Made By Model on Current Batch')
+      # labels = 'Yes', 'No'
+      # sizes = [629, 1135]
+      # fig1, ax1 = plt.subplots()
+      # ax1.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
+      # ax1.axis('equal')
+      # ax1.set_title('Breakdown of Prediction Made By Model on Current Batch')
 
-      st.pyplot(fig1, use_container_width = True)
+      # st.pyplot(fig1, use_container_width = True)
+      st.subheader("Is there a difference in the distribution of the the target label in the old batch VS new batch (with drift introduced): ")
         
    with col_stat:
       if comparing_labels:
