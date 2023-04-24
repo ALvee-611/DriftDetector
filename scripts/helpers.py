@@ -325,6 +325,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from joblib import load
 
 def calculate_model_KPI(model, new_df):
+    loc = os.getcwd()
     p = os.path.join(loc,'preprocess_pipeline', 'preprocess_pipeline.joblib')
     Preprocess = load(p)
     y_true = new_df['Attrition']
