@@ -17,13 +17,15 @@ FA_CSS = f"""<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.1
 st.markdown(FA_CSS, unsafe_allow_html=True)
 
 # read csv
-main_data = '..\\data\\batch_data.csv'
+main_data = 'batch_data.csv'
 
 # read csv from a URL
 @st.cache_data
 def get_data(dataset_url) -> pd.DataFrame:
-   print(os.listdir(os.getcwdb()))
-   return pd.read_csv(dataset_url)
+   loc = os.getcwd()
+   #print(os.listdir(os.getcwdb()))
+   path = os.path.join(loc,'data', main_data)
+   return pd.read_csv(path)
 
 ## Define session states
 if 'show_options' not in st.session_state:
