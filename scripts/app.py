@@ -17,7 +17,7 @@ FA_CSS = f"""<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.1
 st.markdown(FA_CSS, unsafe_allow_html=True)
 
 # read csv
-main_data = '..\\data\\batch_data.csv'
+main_data = '..\\..\\data\\batch_data.csv'
 
 # read csv from a URL
 @st.cache_data
