@@ -149,7 +149,7 @@ if st.session_state['show_options']:
       st.subheader("Is there a difference in the distribution of the the target label in the old batch VS new batch (with drift introduced): ")
         
    with col_stat:
-      if comparing_labels:
+      if comparing_labels == "Significant difference between the two sets of predictions":
             st.markdown('<p style="color: green; font-size:1.5rem; text-align: center;"><i class="fas fa-check-circle"></i> No significant difference between the two sets of predictions!</p>', unsafe_allow_html=True)
       else:
             st.markdown("""<p style="color: red; font-size:1.5rem; text-align:center;"><i class="fas fa-check-circle"></i> Failure</p>
