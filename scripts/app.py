@@ -73,7 +73,9 @@ feature_statement = ""
 for i in st.session_state['features_chosen']:
    feature_statement = feature_statement + ' ' + str(i) 
 st.subheader("You have Chosen: " + feature_statement)
+
 st.write("---")
+
 # st.header("OR")
 
 # st.subheader("Choose the features you want to add drift to (max 5):")
@@ -113,13 +115,7 @@ if st.session_state['show_options']:
 
    comparing_labels = compare_preds(main_df, new_data)
 
-   # if comparing_labels:
-   #    res = "statistically same"
-   # else:
-   #    res = "statistically different"
-
-   #col1, col2, col3 = st.columns([1,3,2])
-   #col2.metric("Current Batch True Labels VS Last Batch True Labels", res)
+   
    st.subheader('Model KPI:')
    col1, col2, col3, col4 = st.columns([1,1,1,1])
    col1.metric("Model Accuracy", str((round(accuracy,2) * 100)) + "%")
@@ -140,28 +136,6 @@ if st.session_state['show_options']:
                         <p style="text-align: center;">Model Needs retraining since accuracy and f1 score both fell below set threshold!</p>""", unsafe_allow_html=True)
       st.subheader('Model Performance:')
 
-   # with tab1:
-   #    fig, (ax1, ax2) = plt.subplots(ncols=2)
-
-   #    ax1.plot(fpr, tpr, label=f'AUC = {auc_roc:.3f}')
-   #    ax1.plot([0, 1], [0, 1], 'k--')
-   #    ax1.set_xlabel('False Positive Rate')
-   #    ax1.set_ylabel('True Positive Rate')
-   #    ax1.set_title('ROC Curve')
-   #    ax1.legend()
-   #    ax1.set_aspect('equal')
-   #    plt.gca().set_position([0, 0, 1, 1])
-   #    ax1.patch.set_alpha(0.0)
-      
-   #    # Plot confusion matrix
-   #    sns.heatmap(cm, annot = True,fmt='d', ax=ax2)
-   #    ax2.set_xlabel('Predicted')
-   #    ax2.set_ylabel('True')
-   #    ax2.set_title('Confusion Matrix')
-      
-   #    #.pyplot()
-         
-   #    st.pyplot(fig, use_container_width=True)
    with st.expander("Model Performance Visualizations"):
       tab1, tab2 = st.tabs(["ROC", "Confusion Matrix"])
       with tab1:
@@ -188,8 +162,6 @@ if st.session_state['show_options']:
          ax2.set_ylabel('True')
          ax2.set_title('Confusion Matrix')
       
-         #.pyplot()
-            
          st.pyplot(fig, use_container_width=True)
    
    st.write("---")
@@ -197,15 +169,6 @@ if st.session_state['show_options']:
    col_pred, col_stat = st.columns([1,1])
    
    with col_pred:
-      # Pie chart, where the slices will be ordered and plotted counter-clockwise:
-      # labels = 'Yes', 'No'
-      # sizes = [629, 1135]
-      # fig1, ax1 = plt.subplots()
-      # ax1.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
-      # ax1.axis('equal')
-      # ax1.set_title('Breakdown of Prediction Made By Model on Current Batch')
-
-      # st.pyplot(fig1, use_container_width = True)
       st.subheader("Is there a difference in the distribution of the the target label in the old batch VS new batch (with drift introduced): ")
       st.markdown("Here we are using the Chi-Sq test to check if there is any difference in the distributions of the target label")
         
@@ -232,11 +195,6 @@ It works by calculating the distance between the two datasets based on the value
       else:
             st.markdown("""<p style="color: red; font-size:2rem; text-align:center;"><i class="fas fa-check-circle"></i> Failure</p>
                         """, unsafe_allow_html=True)
-      # with st.expander("See explanation"):
-         # st.write("""
-         #          The chart the code used to get this:
-         #       """)
-         # st.text("Data Drift")
    
    st.write("---")
 
@@ -262,12 +220,10 @@ It works by calculating the distance between the two datasets based on the value
             for i in x[k]:
                if i not in my_list:
                   my_list.append(i)
-               #st.subheader("from '" + k + "' test:")
          fig, axes = plt.subplots(nrows=len(my_list), ncols=1)
          if 'Attrition' in my_list:
              my_list.remove('Attrition')
          for feature in my_list:
-            st.write(feature)
             old_dist = main_df[feature]
             new_dist = new_df[feature]
             draw_figures(feature, old_dist, new_dist, numerical_col)
