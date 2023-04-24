@@ -102,7 +102,7 @@ def load_model(model_name):
     loc = os.getcwd()
    #print(os.listdir(os.getcwdb()))
     path = os.path.join(loc,'models', model_name)
-    # path = os.path.join( model_name)
+    # path = os.path.join('..\\models', model_name) ######### Change to top one in production
     model = joblib.load(path)
     return model
 
@@ -262,9 +262,9 @@ def compare_preds(old_batch, current_batch, alpha = 0.05):
     chi2, p_val, dof, expected = stats.chi2_contingency(contingency_table)
 
     if p_val < alpha:
-        return "Significant difference between the two sets of predictions"
+        return True
     else:
-        return "No significant difference between the two sets of prediction"
+        return False
     
 
 import numpy as np
@@ -330,9 +330,10 @@ from joblib import load
 def calculate_model_KPI(model, new_df):
     loc = os.getcwd()
     p = os.path.join(loc,'preprocess_pipeline', 'preprocess_pipeline.joblib')
+    # p = os.path.join('..\\preprocess_pipeline', 'preprocess_pipeline.joblib')  ##### Change to top one
     Preprocess = load(p)
     y_true = new_df['Attrition']
-    new_df['OverTime'] = new_df['OverTime'].apply(lambda x: 1 if x == 'Yes' else 0)
+    #new_df['OverTime'] = new_df['OverTime'].apply(lambda x: 1 if x == 'Yes' else 0)
     X_df = new_df.drop('Attrition', axis=1)
     new_data = Preprocess.transform(X_df)
     X = pd.DataFrame(new_data)

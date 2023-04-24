@@ -25,6 +25,7 @@ def get_data(dataset_url) -> pd.DataFrame:
    loc = os.getcwd()
    #print(os.listdir(os.getcwdb()))
    path = os.path.join(loc,'data', main_data)
+   # path = os.path.join('..\\data',main_data) ### Chnage to top one
    return pd.read_csv(path)
 
 ## Define session states
@@ -42,6 +43,8 @@ main_df = get_data(main_data)
 all_columns = main_df.columns.tolist()
 all_columns.remove('Attrition')
 numerical_col, cat_columns = get_num_cat_columns(main_df)
+
+#numerical_col.remove('Attrition')
 
 # Get all model metrics
 accuracy, precision, recall, f1, auc_roc, cm, fpr, tpr, thresholds = calculate_model_KPI(Xg_model, main_df)
@@ -99,7 +102,6 @@ if st.session_state['show_options']:
          new_data[i] = num_drift(main_df, i, drift_type=drift_typ)
       else:
          new_data[i] = cat_drift(main_df, i, drift_type=drift_typ)
-   new_data.drop(columns=['Attrition'], axis=1, inplace=True)
    new_data['Attrition'] = new_data.apply(create_label, axis=1)
    # create two sets of predictions
    predictions_1 = main_df['Attrition']
@@ -127,12 +129,69 @@ if st.session_state['show_options']:
 
    st.markdown("  ")
 
-   if accuracy > 0.75 and f1 > 0.75:
+   if accuracy >= 0.55 and f1 >= 0.50:
       st.markdown('<p style="color: green; font-size:2rem; text-align: center;"><i class="fas fa-check-circle"></i> Model Performing fine with no need for retraining</p>', unsafe_allow_html=True)
+   elif accuracy < 0.55 and f1 >= 0.50:
+      st.markdown('<p style="color: orange; font-size:2rem; text-align: center;"><i class="fas fa-check-circle"></i> Model accuracy has dropped below the set threshold but f1 still above threshold. Model retraining might be required!</p>', unsafe_allow_html=True)
+   elif accuracy >= 0.55 and f1 < 0.50:
+      st.markdown('<p style="color: orange; font-size:2rem; text-align: center;"><i class="fas fa-check-circle"></i> Model f1 score has dropped below the set threshold but accuracy still above threshold. Model retraining might be required!</p>', unsafe_allow_html=True)
    else:
       st.markdown("""<p style="color: red; font-size:2rem; text-align:center;"><i class="fas fa-check-circle"></i> Warning!</p>
-                        <p style="text-align: center;">Model Needs retraining since accuracy fell below 0.8 threshold!</p>""", unsafe_allow_html=True)
+                        <p style="text-align: center;">Model Needs retraining since accuracy and f1 score both fell below set threshold!</p>""", unsafe_allow_html=True)
+      st.subheader('Model Performance:')
+
+   # with tab1:
+   #    fig, (ax1, ax2) = plt.subplots(ncols=2)
+
+   #    ax1.plot(fpr, tpr, label=f'AUC = {auc_roc:.3f}')
+   #    ax1.plot([0, 1], [0, 1], 'k--')
+   #    ax1.set_xlabel('False Positive Rate')
+   #    ax1.set_ylabel('True Positive Rate')
+   #    ax1.set_title('ROC Curve')
+   #    ax1.legend()
+   #    ax1.set_aspect('equal')
+   #    plt.gca().set_position([0, 0, 1, 1])
+   #    ax1.patch.set_alpha(0.0)
       
+   #    # Plot confusion matrix
+   #    sns.heatmap(cm, annot = True,fmt='d', ax=ax2)
+   #    ax2.set_xlabel('Predicted')
+   #    ax2.set_ylabel('True')
+   #    ax2.set_title('Confusion Matrix')
+      
+   #    #.pyplot()
+         
+   #    st.pyplot(fig, use_container_width=True)
+   with st.expander("Model Performance Visualizations"):
+      tab1, tab2 = st.tabs(["ROC", "Confusion Matrix"])
+      with tab1:
+         st.subheader("ROC Curve to evaluate the trade-off between the true positive rate (TPR) and the false positive rate (FPR) for different threshold values.")
+         #fig, (ax1, ax2) = plt.subplots(ncols=2)
+         fig,ax1 = plt.subplots(nrows = 1, ncols = 1)
+         ax1.plot(fpr, tpr, label=f'AUC = {auc_roc:.3f}')
+         ax1.plot([0, 1], [0, 1], 'k--')
+         ax1.set_xlabel('False Positive Rate')
+         ax1.set_ylabel('True Positive Rate')
+         ax1.set_title('ROC Curve')
+         ax1.legend()
+         ax1.set_aspect('equal')
+         plt.gca().set_position([0, 0, 1, 1])
+         ax1.patch.set_alpha(0.0)
+         st.pyplot(fig, use_container_width=True)
+
+      with tab2:
+         # Confusion matrix
+         st.subheader("Confusion Matrix to evaluate the performance of a classification model by comparing actual and predicted values for a given dataset.")
+         fig,ax2 = plt.subplots(nrows = 1, ncols = 1)
+         sns.heatmap(cm, annot = True,fmt='d', ax=ax2)
+         ax2.set_xlabel('Predicted')
+         ax2.set_ylabel('True')
+         ax2.set_title('Confusion Matrix')
+      
+         #.pyplot()
+            
+         st.pyplot(fig, use_container_width=True)
+   
    st.write("---")
 
    col_pred, col_stat = st.columns([1,1])
@@ -148,13 +207,14 @@ if st.session_state['show_options']:
 
       # st.pyplot(fig1, use_container_width = True)
       st.subheader("Is there a difference in the distribution of the the target label in the old batch VS new batch (with drift introduced): ")
+      st.markdown("Here we are using the Chi-Sq test to check if there is any difference in the distributions of the target label")
         
    with col_stat:
-      if comparing_labels == "Significant difference between the two sets of predictions":
+      if comparing_labels:
             st.markdown('<p style="color: green; font-size:1.5rem; text-align: center;"><i class="fas fa-check-circle"></i> No significant difference between the two sets of predictions!</p>', unsafe_allow_html=True)
       else:
             st.markdown("""<p style="color: red; font-size:1.5rem; text-align:center;"><i class="fas fa-check-circle"></i> Failure</p>
-                        <p style="text-align: center;">Possible Concept Drift!!</p>""", unsafe_allow_html=True)
+                        <p style="text-align: center;">Possible Label Drift!!</p>""", unsafe_allow_html=True)
    
    st.write("---")
 
@@ -165,20 +225,18 @@ if st.session_state['show_options']:
    with col_desc:
       st.subheader("Distance-Based Approach to detecting Covariare Drift")
       st.markdown("""The Distance-Based Approach to detecting Covariate Drift is a technique used to detect if there are changes or differences between two datasets that are supposed to be similar.
-It works by calculating the distance between the two datasets based on the values of the features they share. If the distance between the datasets is larger than a certain threshold, then it is likely that the two datasets are different, and there may be covariate drift.
-For example, imagine you have two bowls of fruit - one bowl has only apples and oranges, while the other bowl has apples, oranges, and bananas. To use the distance-based approach, you could calculate the distance between the two bowls based on the number of apples and oranges they both have. If the distance is small, then the two bowls are likely similar. But if the distance is large, then the two bowls are different, and there may be covariate drift.
-In data science, this approach is commonly used to detect drift in datasets that are being used to train machine learning models. It helps to ensure that the model is accurate and reliable over time, even if the data it is being trained on changes.""")
+It works by calculating the distance between the two datasets based on the values of the features they share. If the distance between the datasets is larger than a certain threshold, then it is likely that the two datasets are different, and there may be covariate drift.""")
    with col_stat_check:
       if test_for_drift(main_df, new_data):
             st.markdown('<p style="color: green; font-size:2rem;"><i class="fas fa-check-circle"></i> No significant difference</p>', unsafe_allow_html=True)
       else:
             st.markdown("""<p style="color: red; font-size:2rem; text-align:center;"><i class="fas fa-check-circle"></i> Failure</p>
                         """, unsafe_allow_html=True)
-      with st.expander("See explanation"):
-         st.write("""
-                  The chart the code used to get this:
-               """)
-         st.text("Data Drift")
+      # with st.expander("See explanation"):
+         # st.write("""
+         #          The chart the code used to get this:
+         #       """)
+         # st.text("Data Drift")
    
    st.write("---")
 
@@ -188,7 +246,7 @@ In data science, this approach is commonly used to detect drift in datasets that
 
    with col_desc:
       st.subheader("Statistical Tests to detect Covariare Drift")
-      st.markdown("Here we are checking if there is any feature drift using distanced based approach:")
+      st.markdown("Here we compare the distribution of features between the two batches of data using the Kolmogorov-Smirnov test and Population Stability Index (PSI)")
    with col_stat_check:
       x, any_true = drift_detector(main_df,new_data)
       if any_true:
@@ -206,34 +264,12 @@ In data science, this approach is commonly used to detect drift in datasets that
                   my_list.append(i)
                #st.subheader("from '" + k + "' test:")
          fig, axes = plt.subplots(nrows=len(my_list), ncols=1)
+         if 'Attrition' in my_list:
+             my_list.remove('Attrition')
          for feature in my_list:
+            st.write(feature)
             old_dist = main_df[feature]
             new_dist = new_df[feature]
             draw_figures(feature, old_dist, new_dist, numerical_col)
             
    st.write("---")
-
-
-   st.subheader('Model Performance:')
-
-   fig, (ax1, ax2) = plt.subplots(ncols=2)
-
-   ax1.plot(fpr, tpr, label=f'AUC = {auc_roc:.3f}')
-   ax1.plot([0, 1], [0, 1], 'k--')
-   ax1.set_xlabel('False Positive Rate')
-   ax1.set_ylabel('True Positive Rate')
-   ax1.set_title('ROC Curve')
-   ax1.legend()
-   ax1.set_aspect('equal')
-   plt.gca().set_position([0, 0, 1, 1])
-   ax1.patch.set_alpha(0.0)
-   
-   # Plot confusion matrix
-   sns.heatmap(cm, annot = True,fmt='d', ax=ax2)
-   ax2.set_xlabel('Predicted')
-   ax2.set_ylabel('True')
-   ax2.set_title('Confusion Matrix')
-   
-   #.pyplot()
-      
-   st.pyplot(fig, use_container_width=True)
