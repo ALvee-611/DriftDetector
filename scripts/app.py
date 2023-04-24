@@ -99,6 +99,7 @@ if st.session_state['show_options']:
          new_data[i] = num_drift(main_df, i, drift_type=drift_typ)
       else:
          new_data[i] = cat_drift(main_df, i, drift_type=drift_typ)
+   new_data.drop(columns=['Attrition'], axis=1, inplace=True)
    new_data['Attrition'] = new_data.apply(create_label, axis=1)
    # create two sets of predictions
    predictions_1 = main_df['Attrition']
