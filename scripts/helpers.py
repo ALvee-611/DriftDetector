@@ -99,7 +99,10 @@ def create_label(row):
 
 @st.cache_resource
 def load_model(model_name):
-    path = os.path.join( model_name)
+    loc = os.getcwd()
+   #print(os.listdir(os.getcwdb()))
+    path = os.path.join(loc,'..\\models', model_name)
+    # path = os.path.join( model_name)
     model = joblib.load(path)
     return model
 

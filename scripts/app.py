@@ -63,7 +63,7 @@ st.subheader("Choose 3 features randomly")
 st.text("Once you have chosen the features, this drift detection framework will detect the changes using different methods:")
 if st.button("Random features"):
    random_col_names = random.sample(all_columns, k=3)
-   st.write(random_col_names)
+   # st.write(random_col_names)
    st.session_state['features_chosen'] = random_col_names
    st.session_state['show_options'] = True
 feature_statement = ""
@@ -99,7 +99,7 @@ if st.session_state['show_options']:
          new_data[i] = num_drift(main_df, i, drift_type=drift_typ)
       else:
          new_data[i] = cat_drift(main_df, i, drift_type=drift_typ)
-   
+      new_data['Attrition'] = new_data.apply(create_label, axis=1)
    # create two sets of predictions
    predictions_1 = main_df['Attrition']
    predictions_2 = new_data['Attrition']
