@@ -22,7 +22,7 @@ main_data = '..\\data\\batch_data.csv'
 # read csv from a URL
 @st.cache_data
 def get_data(dataset_url) -> pd.DataFrame:
-   print(os.listdir(os.chdir))
+   print(os.listdir(os.chdir()))
    return pd.read_csv(dataset_url)
 
 ## Define session states
