@@ -136,29 +136,6 @@ def detect_data_drift(reference_data, new_data, threshold=0.05):
             if p_val < threshold:
                 #drift_dict['ks_2samp'] = p_val
                 drift_features.append(feature)
-                #feature_names.append(feature)
-        # else:
-        #     freq1 = np.bincount(old_batch)
-        #     freq2 = np.bincount(new_batch)
-
-        #     contingency_table = np.array([freq1, freq2])
-
-        #     stat, pval, dof, expected = chi2_contingency(contingency_table)
-        #     # #feature_types[feature] = 'categorical'
-        #     # old_batch_codes, _ = pd.factorize(old_batch)
-        #     # new_batch_codes, _ = pd.factorize(new_batch)
-        #     # old_distribution = pd.crosstab(old_batch_codes, new_batch_codes)
-        #     # chi2_stat, p_val, dof, expected = chi2_contingency(old_distribution)
-        #     # if p_val < threshold:
-        #     #     drift_features_cat.append(feature)
-        #     #     #feature_names_cat.append(feature)
-
-        #     # cont_table = pd.crosstab(old_batch, new_batch)
-        #     # chi2_statistic, p_val, dof, expected = chi2_contingency(cont_table)
-        #     if p_val < threshold:
-        #         drift_features_cat.append(feature)
-
-    #return drift_features_cat, drift_features
     return drift_features
 
 
